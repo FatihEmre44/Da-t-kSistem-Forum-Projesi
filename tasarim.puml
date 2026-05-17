@@ -1,0 +1,73 @@
+@startuml
+skinparam style strictuml
+skinparam ClassAttributeIconSize 0
+
+' ==========================================
+' 1. VERİ MODELLERİ (Saf veriyi tutan kilitli kasalar)
+' ==========================================
+class User {
+  - id: String
+  - username: String
+  - sadakatpuani: int
+  - hesaplaDerbiBonusu(puan: int): int
+  + increaseSadakat(puan: int)
+}
+
+class Post {
+  - id: String
+  - authorId: String
+  - content: String
+  - createdAt: Date
+  - upvotes: int
+  ' Yapay Zeka Bayrakları
+  - aiStatus: String
+  - aiScore: float
+  
+  + updateAiResult(status: String, score: float)
+  + upvote()
+}
+
+' ==========================================
+' 2. KONTROL KATMANI (İnterneti karşılayan Garsonlar)
+' ==========================================
+class AuthController {
+  - authService: AuthService
+  + register(req: Request, res: Response)
+  + login(req: Request, res: Response)
+}
+
+' ==========================================
+' 3. SERVİS KATMANI (İşin beyni olan Aşçılar)
+' ==========================================
+class AuthService {
+  - userService: UserService
+  - jwtSecret: String
+  
+  - hashPassword(plain: String): String
+  - comparePassword(plain: String, hash: String): boolean
+  
+  + registerUser(email: String, pass: String): boolean
+  + loginUser(email: String, pass: String): String
+}
+
+class UserService {
+  + findUserByEmail(email: String): User
+  + deleteUser(userId: String)
+}
+
+' ==========================================
+' 4. MİMARİ İLİŞKİLER (Sistem nasıl haberleşiyor?)
+' ==========================================
+' AuthController, AuthService'e bağımlıdır (Aggregation / Boş Elmas)
+AuthController o-- AuthService : "enjekte edilir"
+
+' AuthService, User tablosuna değil, UserService'e danışır (Ok / Association)
+AuthService --> UserService : "kullanır"
+
+' UserService, User'ları yönetir
+UserService --> User : "yönetir"
+
+' Bir Post'un içinde User'ın sadece ID'si durur (N+1 sorununu önlemek için)
+Post "*" --> "1" User : "authorId ile bağlıdır"
+
+@enduml
