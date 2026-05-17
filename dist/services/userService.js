@@ -42,5 +42,13 @@ class UserService {
         user.increaseSadakat(puan);
         return user;
     }
+    async incrementPostCount(userId) {
+        const user = await this.findById(userId);
+        if (!user) {
+            return null;
+        }
+        user.incrementPostCount();
+        return user;
+    }
 }
 exports.UserService = UserService;

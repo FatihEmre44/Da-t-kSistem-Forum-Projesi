@@ -5,6 +5,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { PostService } from "./services/postService";
+import { RabbitMQProvider } from "./services/RabbitMQProvider";
+import { UserStatsWorker } from "./services/UserStatsWorker";
 import { UserService } from "./services/userService";
 
 const app = express();
@@ -15,7 +17,13 @@ app.use(helmet());
 app.use(morgan("dev"));
 
 const userService = new UserService();
-const postService = new PostService();
+
+const rabbitUrl = process.env.RABBITMQ_URL || "amqp://localhost";
+const postsQueue = process.env.POSTS_QUEUE || "posts.events";
+
+const queueProvider = new RabbitMQProvider(rabbitUrl);
+const postService = new PostService({ queueProvider, queueName: postsQueue });
+const userStatsWorker = new UserStatsWorker(queueProvider, postsQueue, userService);
 
 app.get("/health", (_req: Request, res: Response) => {
 	res.json({ status: "ok" });
@@ -50,6 +58,17 @@ app.get("/posts", async (_req: Request, res: Response) => {
 });
 
 const port = Number(process.env.PORT) || 3000;
-app.listen(port, () => {
-	console.log(`GsForum API listening on port ${port}`);
-});
+const startServer = async (): Promise<void> => {
+	try {
+		await queueProvider.connect();
+		await userStatsWorker.start();
+		app.listen(port, () => {
+			console.log(`GsForum API listening on port ${port}`);
+		});
+	} catch (error) {
+		console.error("Startup failed:", error);
+		process.exit(1);
+	}
+};
+
+void startServer();

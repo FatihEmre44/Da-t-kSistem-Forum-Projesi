@@ -2,10 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
 class User {
-    constructor({ id, username, sadakatpuani = 0 } = {}) {
+    constructor({ id, username, sadakatpuani = 0, postCount = 0 } = {}) {
         this.id = id ?? null;
         this.username = username ?? "";
         this.sadakatpuani = Number.isFinite(sadakatpuani) ? sadakatpuani : 0;
+        this.postCount = Number.isFinite(postCount) ? postCount : 0;
     }
     hesaplaDerbiBonusu(puan) {
         const base = Number.isFinite(puan) ? puan : 0;
@@ -18,11 +19,16 @@ class User {
         }
         return this.sadakatpuani;
     }
+    incrementPostCount() {
+        this.postCount += 1;
+        return this.postCount;
+    }
     toJSON() {
         return {
             id: this.id,
             username: this.username,
             sadakatpuani: this.sadakatpuani,
+            postCount: this.postCount,
         };
     }
 }

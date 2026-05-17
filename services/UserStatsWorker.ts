@@ -32,6 +32,12 @@ export class UserStatsWorker {
 				return;
 			}
 
+			console.log("UserStatsWorker: consumed post.created", {
+				queue: this.queueName,
+				postId: event.post.id,
+				authorId,
+			});
+
 			await this.userService.incrementPostCount(authorId);
 		});
 	}

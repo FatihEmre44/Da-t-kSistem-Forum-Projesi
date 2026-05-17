@@ -9,6 +9,8 @@ const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
 const postService_1 = require("./services/postService");
+const RabbitMQProvider_1 = require("./services/RabbitMQProvider");
+const UserStatsWorker_1 = require("./services/UserStatsWorker");
 const userService_1 = require("./services/userService");
 const app = (0, express_1.default)();
 app.use(express_1.default.json({ limit: "1mb" }));
@@ -16,7 +18,11 @@ app.use((0, cors_1.default)());
 app.use((0, helmet_1.default)());
 app.use((0, morgan_1.default)("dev"));
 const userService = new userService_1.UserService();
-const postService = new postService_1.PostService();
+const rabbitUrl = process.env.RABBITMQ_URL || "amqp://localhost";
+const postsQueue = process.env.POSTS_QUEUE || "posts.events";
+const queueProvider = new RabbitMQProvider_1.RabbitMQProvider(rabbitUrl);
+const postService = new postService_1.PostService({ queueProvider, queueName: postsQueue });
+const userStatsWorker = new UserStatsWorker_1.UserStatsWorker(queueProvider, postsQueue, userService);
 app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
 });
@@ -47,6 +53,17 @@ app.get("/posts", async (_req, res) => {
     res.json(posts.map((post) => post.toJSON()));
 });
 const port = Number(process.env.PORT) || 3000;
-app.listen(port, () => {
-    console.log(`GsForum API listening on port ${port}`);
-});
+const startServer = async () => {
+    try {
+        await queueProvider.connect();
+        await userStatsWorker.start();
+        app.listen(port, () => {
+            console.log(`GsForum API listening on port ${port}`);
+        });
+    }
+    catch (error) {
+        console.error("Startup failed:", error);
+        process.exit(1);
+    }
+};
+void startServer();

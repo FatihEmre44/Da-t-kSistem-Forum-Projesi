@@ -32,6 +32,11 @@ export class PostService {
 				type: "post.created",
 				post: post.toJSON(),
 			};
+			console.log("PostService: publishing post.created", {
+				queue: this.queueName,
+				postId: payload.post.id,
+				authorId: payload.post.authorId,
+			});
 			await this.queueProvider.publish(this.queueName, JSON.stringify(payload));
 		}
 		return post;

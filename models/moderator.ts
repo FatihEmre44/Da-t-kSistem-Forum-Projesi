@@ -20,7 +20,7 @@ export class Moderator extends User {
 		};
 	}
 
-	toJSON(): { id: string | null; username: string; sadakatpuani: number; level: number } {
+	toJSON(): { id: string | null; username: string; sadakatpuani: number; postCount: number; level: number } {
 		return {
 			...super.toJSON(),
 			level: this.level,

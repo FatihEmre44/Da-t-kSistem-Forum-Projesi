@@ -20,7 +20,7 @@ export class Admin extends User {
 		};
 	}
 
-	toJSON(): { id: string | null; username: string; sadakatpuani: number; scope: string } {
+	toJSON(): { id: string | null; username: string; sadakatpuani: number; postCount: number; scope: string } {
 		return {
 			...super.toJSON(),
 			scope: this.scope,

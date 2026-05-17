@@ -18,11 +18,16 @@ class PostService {
         }
         this.postsById.set(post.id, post);
         if (this.queueProvider && this.queueName) {
-            const payload = post.toJSON();
-            await this.queueProvider.publish(this.queueName, JSON.stringify({
+            const payload = {
                 type: "post.created",
-                post: payload,
-            }));
+                post: post.toJSON(),
+            };
+            console.log("PostService: publishing post.created", {
+                queue: this.queueName,
+                postId: payload.post.id,
+                authorId: payload.post.authorId,
+            });
+            await this.queueProvider.publish(this.queueName, JSON.stringify(payload));
         }
         return post;
     }
