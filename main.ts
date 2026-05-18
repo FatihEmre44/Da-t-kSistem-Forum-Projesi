@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { Request, Response } from "express";
+import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -10,6 +10,10 @@ import { TopicStatsWorker } from "./services/TopicStatsWorker";
 import { TopicService } from "./services/topicService";
 import { UserStatsWorker } from "./services/UserStatsWorker";
 import { UserService } from "./services/userService";
+import { createHealthRouter } from "./routes/healthRouter";
+import { createUsersRouter } from "./routes/usersRouter";
+import { createPostsRouter } from "./routes/postsRouter";
+import { createTopicsRouter } from "./routes/topicsRouter";
 
 const app = express();
 
@@ -29,66 +33,10 @@ const postService = new PostService({ queueProvider, queueName: postsQueue });
 const userStatsWorker = new UserStatsWorker(queueProvider, postsQueue, userService);
 const topicStatsWorker = new TopicStatsWorker(queueProvider, postsQueue, topicService);
 
-app.get("/health", (_req: Request, res: Response) => {
-	res.json({ status: "ok" });
-});
-
-app.post("/users", async (req: Request, res: Response) => {
-	try {
-		const user = await userService.createUser(req.body);
-		res.status(201).json(user.toJSON());
-	} catch (error) {
-		res.status(400).json({ error: (error as Error).message });
-	}
-});
-
-app.get("/users", async (_req: Request, res: Response) => {
-	const users = await userService.listUsers();
-	res.json(users.map((user) => user.toJSON()));
-});
-
-app.post("/posts", async (req: Request, res: Response) => {
-	try {
-		const post = await postService.createPost(req.body);
-		res.status(201).json(post.toJSON());
-	} catch (error) {
-		res.status(400).json({ error: (error as Error).message });
-	}
-});
-
-app.get("/posts", async (_req: Request, res: Response) => {
-	const posts = await postService.listPosts();
-	res.json(posts.map((post) => post.toJSON()));
-});
-
-app.post("/topics", async (req: Request, res: Response) => {
-	try {
-		const topic = await topicService.createTopic(req.body);
-		res.status(201).json(topic.toJSON());
-	} catch (error) {
-		res.status(400).json({ error: (error as Error).message });
-	}
-});
-
-app.get("/topics", async (_req: Request, res: Response) => {
-	const topics = await topicService.listTopics();
-	res.json(topics.map((topic) => topic.toJSON()));
-});
-
-app.delete("/posts/:id", async (req: Request, res: Response) => {
-	const deleted = await postService.deletePost(req.params.id);
-	if (!deleted) {
-		res.status(404).json({ error: "Post not found" });
-		return;
-	}
-	res.json(deleted.toJSON());
-});
-
-app.get("/topics/trending", async (req: Request, res: Response) => {
-	const limit = Number(req.query.limit) || 10;
-	const topics = await topicService.getTrendingTopics(limit);
-	res.json(topics.map((topic) => topic.toJSON()));
-});
+app.use("/health", createHealthRouter());
+app.use("/users", createUsersRouter(userService));
+app.use("/posts", createPostsRouter(postService));
+app.use("/topics", createTopicsRouter(topicService));
 
 const port = Number(process.env.PORT) || 3000;
 const startServer = async (): Promise<void> => {
