@@ -7,6 +7,7 @@ import morgan from "morgan";
 import { createPostsRouter } from "./routes/postsRouter";
 import { PostService } from "./services/postService";
 import { RabbitMQProvider } from "./queue/RabbitMQProvider";
+import { PostModerationFailedEvent } from "./events/PostModerationFailedEvent";
 
 const app = express();
 
@@ -16,10 +17,11 @@ app.use(helmet());
 app.use(morgan("dev"));
 
 const rabbitUrl = process.env.RABBITMQ_URL || "amqp://localhost";
-const postsQueue = process.env.POSTS_QUEUE || "posts.events";
+const postsQueueStats = process.env.POSTS_QUEUE_STATS || process.env.POSTS_QUEUE || "posts.events.stats";
+const postsQueueAi = process.env.POSTS_QUEUE_AI || process.env.POSTS_QUEUE || "posts.events.ai";
 
 const queueProvider = new RabbitMQProvider(rabbitUrl);
-const postService = new PostService({ queueProvider, queueName: postsQueue });
+const postService = new PostService({ queueProvider, queueNames: [postsQueueStats, postsQueueAi] });
 
 app.use("/health", (_req, res) => {
 	res.json({ status: "ok" });
@@ -31,6 +33,36 @@ const port = Number(process.env.PORT) || 3002;
 const startServer = async (): Promise<void> => {
 	try {
 		await queueProvider.connect();
+		await queueProvider.subscribe(postsQueueAi, async (raw) => {
+			let event: PostModerationFailedEvent | null = null;
+			try {
+				event = JSON.parse(raw) as PostModerationFailedEvent;
+			} catch (error) {
+				return;
+			}
+
+			if (!event || event.type !== "post.moderation.failed") {
+				return;
+			}
+
+			if (!event.postId) {
+				return;
+			}
+
+			const deleted = await postService.deletePost(event.postId);
+			if (!deleted) {
+				console.warn("PostService: moderation delete skipped (missing post)", {
+					postId: event.postId,
+					reasons: event.reasons,
+				});
+				return;
+			}
+
+			console.warn("PostService: deleted post after moderation failure", {
+				postId: event.postId,
+				reasons: event.reasons,
+			});
+		});
 		app.listen(port, () => {
 			console.log(`Post service listening on port ${port}`);
 		});

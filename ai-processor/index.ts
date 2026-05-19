@@ -2,13 +2,20 @@ import "dotenv/config";
 
 import { RabbitMQProvider } from "./queue/RabbitMQProvider";
 import { PostCreatedEvent } from "./events/PostCreatedEvent";
+import { PostModerationFailedEvent } from "./events/PostModerationFailedEvent";
 import { AiService } from "./services/aiService";
 
 const rabbitUrl = process.env.RABBITMQ_URL || "amqp://localhost";
-const postsQueue = process.env.POSTS_QUEUE || "posts.events";
+const postsQueue = process.env.POSTS_QUEUE_AI || process.env.POSTS_QUEUE || "posts.events.ai";
+const openAiApiKey = process.env.OPENAI_API_KEY || "";
+const forceFlag = process.env.AI_FORCE_FLAG === "true";
 
 const queueProvider = new RabbitMQProvider(rabbitUrl);
-const aiService = new AiService();
+if (!openAiApiKey) {
+	console.warn("AI processor: OPENAI_API_KEY is not set");
+}
+
+const aiService = new AiService({ apiKey: openAiApiKey, forceFlag });
 
 const startProcessor = async (): Promise<void> => {
 	try {
@@ -27,6 +34,21 @@ const startProcessor = async (): Promise<void> => {
 			}
 
 			if (!event.post.id) {
+				return;
+			}
+
+			const { flagged, reasons } = await aiService.moderateContent(event.post.content ?? "");
+			if (flagged) {
+				const payload: PostModerationFailedEvent = {
+					type: "post.moderation.failed",
+					postId: event.post.id,
+					reasons,
+				};
+				console.warn("AiProcessor: moderation failed", {
+					postId: payload.postId,
+					reasons: payload.reasons,
+				});
+				await queueProvider.publish(postsQueue, JSON.stringify(payload));
 				return;
 			}
 

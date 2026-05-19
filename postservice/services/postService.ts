@@ -5,18 +5,18 @@ import { PostDeletedEvent } from "../events/PostDeletedEvent";
 
 export interface PostServiceOptions {
 	queueProvider?: IQueueProvider | null;
-	queueName?: string;
+	queueNames?: string[];
 }
 
 export class PostService {
 	private postsById: Map<string, Post>;
 	private queueProvider: IQueueProvider | null;
-	private queueName: string;
+	private queueNames: string[];
 
-	constructor({ queueProvider = null, queueName = "" }: PostServiceOptions = {}) {
+	constructor({ queueProvider = null, queueNames = [] }: PostServiceOptions = {}) {
 		this.postsById = new Map();
 		this.queueProvider = queueProvider;
-		this.queueName = queueName;
+		this.queueNames = queueNames.filter((name) => Boolean(name));
 	}
 
 	async createPost({ id, authorId, topicId, content, createdAt, upvotes = 0, aiStatus, aiScore }: PostProps = {}): Promise<Post> {
@@ -28,18 +28,20 @@ export class PostService {
 			throw new Error("Post already exists");
 		}
 		this.postsById.set(post.id, post);
-		if (this.queueProvider && this.queueName) {
+		if (this.queueProvider && this.queueNames.length > 0) {
 			const payload: PostCreatedEvent = {
 				type: "post.created",
 				post: post.toJSON(),
 			};
-			console.log("PostService: publishing post.created", {
-				queue: this.queueName,
-				postId: payload.post.id,
-				authorId: payload.post.authorId,
-				topicId: payload.post.topicId,
-			});
-			await this.queueProvider.publish(this.queueName, JSON.stringify(payload));
+			for (const queueName of this.queueNames) {
+				console.log("PostService: publishing post.created", {
+					queue: queueName,
+					postId: payload.post.id,
+					authorId: payload.post.authorId,
+					topicId: payload.post.topicId,
+				});
+				await this.queueProvider.publish(queueName, JSON.stringify(payload));
+			}
 		}
 		return post;
 	}
@@ -62,18 +64,20 @@ export class PostService {
 			return null;
 		}
 		this.postsById.delete(postId);
-		if (this.queueProvider && this.queueName) {
+		if (this.queueProvider && this.queueNames.length > 0) {
 			const payload: PostDeletedEvent = {
 				type: "post.deleted",
 				post: post.toJSON(),
 			};
-			console.log("PostService: publishing post.deleted", {
-				queue: this.queueName,
-				postId: payload.post.id,
-				authorId: payload.post.authorId,
-				topicId: payload.post.topicId,
-			});
-			await this.queueProvider.publish(this.queueName, JSON.stringify(payload));
+			for (const queueName of this.queueNames) {
+				console.log("PostService: publishing post.deleted", {
+					queue: queueName,
+					postId: payload.post.id,
+					authorId: payload.post.authorId,
+					topicId: payload.post.topicId,
+				});
+				await this.queueProvider.publish(queueName, JSON.stringify(payload));
+			}
 		}
 		return post;
 	}

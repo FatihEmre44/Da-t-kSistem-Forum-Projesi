@@ -7,7 +7,7 @@ import { TopicStatsWorker } from "./workers/TopicStatsWorker";
 import { UserStatsWorker } from "./workers/UserStatsWorker";
 
 const rabbitUrl = process.env.RABBITMQ_URL || "amqp://localhost";
-const postsQueue = process.env.POSTS_QUEUE || "posts.events";
+const postsQueue = process.env.POSTS_QUEUE_STATS || process.env.POSTS_QUEUE || "posts.events.stats";
 
 const queueProvider = new RabbitMQProvider(rabbitUrl);
 const userService = new UserService();
